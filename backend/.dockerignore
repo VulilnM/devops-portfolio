@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Development/test files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# HTTP test file
+*.http
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker files that aren't needed inside the build context
+Dockerfile*
+docker-compose*.yml
