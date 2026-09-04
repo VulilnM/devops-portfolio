@@ -81,9 +81,15 @@ docker build \
     -t "$FRONTEND_IMAGE" \
     ./frontend
 
+# ==========================================
+# 4. Show docker images
+# ==========================================
+
+print_step "Docker images"
+docker images
 
 # ==========================================
-# 4. Run Backend
+# 5. Run Backend
 # ==========================================
 
 print_step "Starting Backend container"
@@ -96,7 +102,7 @@ docker run -d \
 
 
 # ==========================================
-# 5. Run Frontend
+# 6. Run Frontend
 # ==========================================
 
 print_step "Starting Frontend container"
@@ -108,7 +114,7 @@ docker run -d \
 
 
 # ==========================================
-# 6. Show running containers
+# 7. Show running containers
 # ==========================================
 
 print_step "Running containers"
@@ -117,28 +123,26 @@ docker ps
 
 
 # ==========================================
-# 7. Open browser
+# 8. Open browser
 # ==========================================
 
 print_step "Opening applications in browser"
 
 if command -v xdg-open > /dev/null; then
 
-    xdg-open "http://localhost:3000" > /dev/null 2>&1 &
-    xdg-open "http://localhost:8080/weatherforecast" > /dev/null 2>&1 &
+    xdg-open "http://localhost:3000/weather" > /dev/null 2>&1 &
 
 elif command -v firefox > /dev/null; then
 
-    firefox "http://localhost:3000" "http://localhost:8080/weatherforecast" > /dev/null 2>&1 &
+    firefox "http://localhost:3000/weather" > /dev/null 2>&1 &
 
 else
 
     echo "Could not automatically open browser."
-    echo "Frontend: http://localhost:3000"
+    echo "Frontend: http://localhost:3000/weather"
     echo "Backend:  http://localhost:8080/weatherforecast"
 
 fi
-
 
 # ==========================================
 # Done
@@ -146,10 +150,5 @@ fi
 
 print_step "Deployment completed"
 
-echo "Frontend: http://localhost:3000"
+echo "Frontend: http://localhost:3000/weather"
 echo "Backend:  http://localhost:8080/weatherforecast"
-echo ""
-echo "Containers:"
-echo "  - $FRONTEND_CONTAINER"
-echo "  - $BACKEND_CONTAINER"
-echo ""
