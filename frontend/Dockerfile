@@ -1,20 +1,21 @@
 # ---- Stage 1: Build ----
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 
-COPY Backend.csproj .
+COPY Frontend.csproj .
 RUN dotnet restore
 
 COPY . .
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # ---- Stage 2: Runtime ----
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
-WORKDIR /app
+FROM nginx:alpine AS final
 
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
+RUN rm -rf /usr/share/nginx/html/*
 
-COPY --from=build /app/publish .
+COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 
-ENTRYPOINT ["dotnet", "Backend.dll"]
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
