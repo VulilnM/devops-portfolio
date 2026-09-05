@@ -1,0 +1,181 @@
+@using Frontend.Dto
+@page "/analyze"
+@inject IHttpClientFactory HttpClientFactory
+@implements IDisposable
+
+<PageTitle>Car Analyzer</PageTitle>
+
+<h1>Analiza vozila</h1>
+
+<div class="mb-3">
+    <label>Marka</label>
+    <input class="form-control" @bind="make" placeholder="npr. Audi" />
+</div>
+
+<div class="mb-3">
+    <label>Model</label>
+    <input class="form-control" @bind="model" placeholder="npr. A4" />
+</div>
+
+<div class="mb-3">
+    <label>Godište</label>
+    <input class="form-control" type="number" @bind="year" placeholder="npr. 2020" />
+</div>
+
+<button class="btn btn-primary" @onclick="StartAnalysis" disabled="@isSubmitting">
+    Analiziraj
+</button>
+
+@if (errorMessage is not null)
+{
+    <p class="text-danger mt-3">@errorMessage</p>
+}
+
+@if (searchRequestId is not null)
+{
+    <hr />
+
+    @if (currentStatus == "Pending")
+    {
+        <p><em>Zahtev je u obradi... (Auto: @make @model @year)</em></p>
+    }
+    else if (currentStatus == "Completed")
+    {
+        <h3>Rezultat</h3>
+        <p>
+            <strong>@result?.Car.Make @result?.Car.Model (@result?.Car.Year)</strong>
+        </p>
+
+        @if (result?.Sources.Count > 0)
+        {
+            <ul>
+                @foreach (var source in result.Sources)
+                {
+                    <li>
+                        <a href="@source.Url" target="_blank">@source.Title</a>
+                        (@source.Domain)
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p><em>Nema izvora.</em></p>
+        }
+    }
+}
+
+@code {
+    private string make = string.Empty;
+    private string model = string.Empty;
+    private int year;
+
+    private int? searchRequestId;
+    private string? currentStatus;
+    private SearchRequestDto? result;
+    private string? errorMessage;
+    private bool isSubmitting;
+
+    private PeriodicTimer? pollTimer;
+    private CancellationTokenSource? pollCts;
+
+    private async Task StartAnalysis()
+    {
+        errorMessage = null;
+        result = null;
+        currentStatus = null;
+        isSubmitting = true;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+
+            var request = new AnalyzeCarRequest
+            {
+                Make = make,
+                Model = model,
+                Year = year
+            };
+
+            var response = await client.PostAsJsonAsync("api/cars/analyze", request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Greška: {response.StatusCode}";
+                return;
+            }
+
+            var analyzeResponse = await response.Content.ReadFromJsonAsync<AnalyzeCarResponse>();
+
+            if (analyzeResponse is null)
+            {
+                errorMessage = "Neočekivan odgovor servera.";
+                return;
+            }
+
+            searchRequestId = analyzeResponse.SearchRequestId;
+            currentStatus = analyzeResponse.Status;
+
+            StartPolling(analyzeResponse.SearchRequestId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška pri slanju zahteva: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void StartPolling(int id)
+    {
+        pollCts?.Cancel();
+        pollCts = new CancellationTokenSource();
+        pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+
+        _ = PollLoop(id, pollTimer, pollCts.Token);
+    }
+
+    private async Task PollLoop(int id, PeriodicTimer timer, CancellationToken token)
+    {
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                var client = HttpClientFactory.CreateClient("BackendApi");
+                var dto = await client.GetFromJsonAsync<SearchRequestDto>($"api/searchrequests/{id}", token);
+
+                if (dto is null)
+                {
+                    continue;
+                }
+
+                currentStatus = dto.Status;
+
+                if (dto.Status == "Completed")
+                {
+                    result = dto;
+                    timer.Dispose();
+                    return;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // ocekivano pri Dispose/navigaciji van stranice
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        pollCts?.Cancel();
+        pollTimer?.Dispose();
+    }
+}
