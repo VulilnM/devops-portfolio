@@ -37,7 +37,7 @@
 
     @if (currentStatus == "Pending")
     {
-        <p><em>Zahtev je u obradi... (Auto: @make @model @year)</em></p>
+        <p><em>Zahtev je u obradi... (RequestId: @searchRequestId, Auto: @make @model @year)</em></p>
     }
     else if (currentStatus == "Completed")
     {
