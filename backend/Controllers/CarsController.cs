@@ -11,10 +11,13 @@ namespace DevOpsPortfolio.Backend.Controllers;
 public class CarsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly System.Threading.Channels.ChannelWriter<int> _channelWriter;
 
-    public CarsController(AppDbContext context)
+
+    public CarsController(AppDbContext context, System.Threading.Channels.ChannelWriter<int> channelWriter)
     {
         _context = context;
+        _channelWriter = channelWriter;
     }
 
     [HttpPost("analyze")]
@@ -38,6 +41,8 @@ public class CarsController : ControllerBase
         _context.SearchRequests.Add(searchRequest);
 
         await _context.SaveChangesAsync();
+
+        await _channelWriter.WriteAsync(searchRequest.Id);
 
         var response = new AnalyzeCarResponse
         {
