@@ -17,6 +17,22 @@ services:
       timeout: 5s
       retries: 5
 
+  llm:
+    image: ollama/ollama:rocm
+    container_name: llm-dev
+    restart: unless-stopped
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+    volumes:
+      - /usr/share/ollama/.ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - app-network
+
   backend:
     build: ./backend
     container_name: backend-dev
