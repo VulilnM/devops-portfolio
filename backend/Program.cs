@@ -13,6 +13,18 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<int>>().Reader
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<int>>().Writer);
 builder.Services.AddHostedService<LlmProcessingService>();
 
+builder.Services.AddHttpClient("Ollama", client =>
+{
+    client.BaseAddress = new Uri("http://llm:11434");
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+
+builder.Services.AddHttpClient("SearXNG", client =>
+{
+    client.BaseAddress = new Uri("http://searxng:8080");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")

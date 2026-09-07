@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using DevOpsPortfolio.Backend.Data;
+using DevOpsPortfolio.Backend.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevOpsPortfolio.Backend.Services;
@@ -9,15 +10,20 @@ public class LlmProcessingService : BackgroundService
     private readonly ChannelReader<int> _channelReader;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<LlmProcessingService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public LlmProcessingService(
         ChannelReader<int> channelReader,
         IServiceScopeFactory scopeFactory,
-        ILogger<LlmProcessingService> logger)
+        ILogger<LlmProcessingService> logger,
+        IHttpClientFactory httpClientFactory
+        )
+
     {
         _channelReader = channelReader;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
     }
 
     protected override async Task ExecuteAsync(
@@ -84,21 +90,25 @@ public class LlmProcessingService : BackgroundService
             searchRequest.Car.Year);
 
         // Promeni status
-        searchRequest.Status = "Processing";
+        searchRequest.Status = "Processing...";
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // ==========================================
-        // OVDE ĆE IĆI LLM PROCESSING
-        // ==========================================
+        searchRequest.Status = "Web scraping in progress...";
 
-        await ProcessWithLlmAsync(
+        var webSearchingHelper = new WebSearchingHelper(_httpClientFactory);
+        var searchResults = await webSearchingHelper    .SearchCarAsync(
             searchRequest,
             cancellationToken);
 
-        // Nakon uspešne obrade
+        searchRequest.Status = "LLM processing in progress...";
+        string llmResult = await ProcessWithLlmAsync(
+            searchRequest,
+            searchResults,
+            cancellationToken);
+
         searchRequest.Status = "Completed";
-        searchRequest.Summary = $"LLM Processed {searchRequest.Car.Make} {searchRequest.Car.Model} {searchRequest.Car.Year}, ReqId: {searchRequest.Id}";
+        searchRequest.Summary = llmResult;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -107,21 +117,68 @@ public class LlmProcessingService : BackgroundService
             searchRequestId);
     }
 
-    private async Task ProcessWithLlmAsync(
+    private async Task<string> ProcessWithLlmAsync(
         Models.SearchRequest searchRequest,
+        string searchResults,
         CancellationToken cancellationToken)
     {
-        var car = searchRequest.Car;
+        var client =
+            _httpClientFactory.CreateClient("Ollama");
+
+        var prompt = $"""
+            You are an automotive analyst.
+
+            Analyze this car:
+
+            Make: {searchRequest.Car.Make}
+            Model: {searchRequest.Car.Model}
+            Year: {searchRequest.Car.Year}
+
+            Here are internet search results:
+
+            {searchResults}
+
+            Based on the provided information, give a concise analysis covering:
+
+            1. General overview
+            2. Engine and performance
+                - Make sure to list out all fuel types available for this car and their respective engine sizes (inlcuding hybrid or full electric).
+            3. Reliability
+            4. Common problems
+            5. Overall recommendation
+            6. Maintenance cost and tips
+            7. Experiences from owners
+            Do not invent information.
+            """;
+
+        var request = new
+        {
+            model = "qwen2.5",
+            prompt = prompt,
+            stream = false
+        };
 
         _logger.LogInformation(
-            "Sending {Make} {Model} {Year} to LLM...",
-            car.Make,
-            car.Model,
-            car.Year);
+            "Sending SearchRequest {SearchRequestId} to Ollama.",
+            searchRequest.Id);
 
-        // TODO:
-        // Poziv Ollama / Qwen modela
+        var response = await client.PostAsJsonAsync(
+            "/api/generate",
+            request,
+            cancellationToken);
 
-        await Task.Delay(5000, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var result =
+            await response.Content
+                .ReadFromJsonAsync<OllamaResponse>(
+                    cancellationToken);
+
+        return result?.Response ?? string.Empty;
+    }
+
+    private class OllamaResponse
+    {
+        public string Response { get; set; } = string.Empty;
     }
 }
