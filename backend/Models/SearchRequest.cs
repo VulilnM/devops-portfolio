@@ -10,6 +10,8 @@ public class SearchRequest
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? Summary { get; set; }
+
     // N : 1
     public Car Car { get; set; } = null!;
 

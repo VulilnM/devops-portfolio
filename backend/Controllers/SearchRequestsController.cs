@@ -34,6 +34,7 @@ public class SearchRequestsController : ControllerBase
             Id = searchRequest.Id,
             Status = searchRequest.Status,
             CreatedAt = searchRequest.CreatedAt,
+            Summary = searchRequest.Summary,
             Car = new CarDto
             {
                 Id = searchRequest.Car.Id,
