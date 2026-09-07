@@ -489,3 +489,4 @@ $RECYCLE.BIN/
 
 # k3s/kind local artifacts (dodaćemo kasnije po potrebi)
 kubeconfig*.yaml
+searxng/settings.yml

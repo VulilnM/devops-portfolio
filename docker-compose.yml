@@ -33,6 +33,17 @@ services:
     networks:
       - app-network
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng-dev
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng
+    ports:
+      - "8081:8080"
+    networks:
+      - app-network
+
   backend:
     build: ./backend
     container_name: backend-dev
