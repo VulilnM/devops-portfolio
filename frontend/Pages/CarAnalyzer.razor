@@ -5,25 +5,25 @@
 
 <PageTitle>Car Analyzer</PageTitle>
 
-<h1>Analiza vozila</h1>
+<h1>Vehicle Analysis</h1>
 
 <div class="mb-3">
-    <label>Marka</label>
-    <input class="form-control" @bind="make" placeholder="npr. Audi" />
+<label>Make</label>
+    <input class="form-control" @bind="make" placeholder="e.g., Audi" />
 </div>
 
 <div class="mb-3">
     <label>Model</label>
-    <input class="form-control" @bind="model" placeholder="npr. A4" />
+    <input class="form-control" @bind="model" placeholder="e.g., A4" />
 </div>
 
 <div class="mb-3">
-    <label>Godište</label>
-    <input class="form-control" type="number" @bind="year" placeholder="npr. 2020" />
+    <label>Year</label>
+    <input class="form-control" type="number" @bind="year" placeholder="e.g., 2020" />
 </div>
 
 <button class="btn btn-primary" @onclick="StartAnalysis" disabled="@isSubmitting">
-    Analiziraj
+    Analyze
 </button>
 
 @if (errorMessage is not null)
@@ -37,11 +37,11 @@
 
     @if (currentStatus == "Pending")
     {
-        <p><em>Zahtev je u obradi... (RequestId: @searchRequestId, Auto: @make @model @year)</em></p>
+        <p><em>Request is being processed... (RequestId: @searchRequestId, Car: @make @model @year)</em></p>
     }
     else if (currentStatus == "Completed")
     {
-        <h3>Rezultat</h3>
+        <h3>Result</h3>
         <p>
             <strong>@result?.Car.Make @result?.Car.Model (@result?.Car.Year)</strong>
         </p>
@@ -53,7 +53,7 @@
         </p>
 
 
-        <h3>Izvori</h3>
+        <h3>Sources</h3>
         @if (result?.Sources.Count > 0)
         {
             <ul>
@@ -70,14 +70,14 @@
         }
         else
         {
-            <p><em>Nema izvora.</em></p>
+            <p><em>No sources available.</em></p>
         }
     }
 }
 
-@code {
 @using Markdig
 
+@code {
     private string make = string.Empty;
 private string model = string.Empty;
 private int year;
@@ -118,7 +118,7 @@ private async Task StartAnalysis()
 
         if (!response.IsSuccessStatusCode)
         {
-            errorMessage = $"Greška: {response.StatusCode}";
+            errorMessage = $"Error: {response.StatusCode}";
             return;
         }
 
@@ -126,7 +126,7 @@ private async Task StartAnalysis()
 
         if (analyzeResponse is null)
         {
-            errorMessage = "Neočekivan odgovor servera.";
+            errorMessage = "Unexpected server response.";
             return;
         }
 
@@ -137,7 +137,7 @@ private async Task StartAnalysis()
     }
     catch (Exception ex)
     {
-        errorMessage = $"Greška pri slanju zahteva: {ex.Message}";
+        errorMessage = $"Error submitting request: {ex.Message}";
     }
     finally
     {
@@ -182,7 +182,7 @@ private async Task PollLoop(int id, PeriodicTimer timer, CancellationToken token
     }
     catch (OperationCanceledException)
     {
-        // ocekivano pri Dispose/navigaciji van stranice
+        // expected during Dispose/navigation away from the page
     }
     finally
     {

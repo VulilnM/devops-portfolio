@@ -61,13 +61,13 @@ public class LlmProcessingService : BackgroundService
             "Processing SearchRequest {SearchRequestId}",
             searchRequestId);
 
-        // Svaki job dobija svoj scope
+        // Each job gets its own scope
         using var scope = _scopeFactory.CreateScope();
 
         var dbContext = scope.ServiceProvider
             .GetRequiredService<AppDbContext>();
 
-        // Učitaj SearchRequest + povezani Car
+        // Load SearchRequest + related Car
         var searchRequest = await dbContext.SearchRequests
             .Include(x => x.Car)
             .FirstOrDefaultAsync(
@@ -90,7 +90,7 @@ public class LlmProcessingService : BackgroundService
             searchRequest.Car.Model,
             searchRequest.Car.Year);
 
-        // Promeni status
+        // Change status
         searchRequest.Status = "Processing...";
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -112,7 +112,7 @@ public class LlmProcessingService : BackgroundService
         foreach (var (url, title) in extractedSources)
         {
             string? domain = null;
-            try { domain = new Uri(url).Host; } catch { /* ignoriši nevalidan URL */ }
+            try { domain = new Uri(url).Host; } catch { /* ignore invalid URL */ }
 
             dbContext.Sources.Add(new Source
             {
