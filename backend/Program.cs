@@ -59,12 +59,6 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(dbContext);
 }
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");

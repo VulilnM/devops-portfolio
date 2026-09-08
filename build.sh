@@ -69,8 +69,7 @@ echo "[4/4] Opening application..."
 
 sleep 3
 
-xdg-open http://localhost:3000 >/dev/null 2>&1 &
-xdg-open http://localhost:8080/swagger >/dev/null 2>&1 &
+xdg-open http://localhost:3000 >/dev/null 2>&1
 
 echo ""
 echo "========================================"
@@ -79,5 +78,6 @@ echo "========================================"
 echo ""
 echo "Frontend : http://localhost:3000"
 echo "Backend  : http://localhost:8080"
-echo "Swagger  : http://localhost:8080/swagger"
+echo "LLM      : http://localhost:11434"
+echo "SearXNG  : http://localhost:8081"
 echo ""
