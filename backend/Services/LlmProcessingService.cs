@@ -144,30 +144,47 @@ public class LlmProcessingService : BackgroundService
             _httpClientFactory.CreateClient("Ollama");
 
         var prompt = $"""
-            You are an automotive analyst.
+    You are an automotive analyst specializing in detailed, model-year-specific vehicle assessments.
 
-            Analyze this car:
+    Analyze this car:
 
-            Make: {searchRequest.Car.Make}
-            Model: {searchRequest.Car.Model}
-            Year: {searchRequest.Car.Year}
+    Make: {searchRequest.Car.Make}
+    Model: {searchRequest.Car.Model}
+    Year: {searchRequest.Car.Year}
 
-            Here are internet search results:
+    Here are internet search results:
 
-            {searchResults}
+    {searchResults}
 
-            Based on the provided information, give a concise analysis covering:
+    IMPORTANT: Focus exclusively on the {searchRequest.Car.Year} model year. Do not describe other
+    model years, generations, or facelifts unless directly relevant to explain a change that applies
+    specifically to {searchRequest.Car.Year} (e.g. a mid-cycle update introduced that year). If the
+    search results contain information about other years, ignore it or explicitly note that it does
+    not apply to this model year.
 
-            1. General overview
-            2. Engine and performance
-                - Make sure to list out all fuel types available for this car and their respective engine sizes (inlcuding hybrid or full electric).
-            3. Reliability
-            4. Common problems
-            5. Overall recommendation
-            6. Maintenance cost and tips
-            7. Experiences from owners
-            Do not invent information.
-            """;
+    Based on the provided information, give a technical, precise analysis covering:
+
+    1. General overview
+    2. Engine and performance
+        - List every powertrain/fuel type available specifically for the {searchRequest.Car.Year}
+          model year (including hybrid or full electric variants), each with exact engine
+          displacement, cylinder configuration, horsepower, torque, transmission type, and
+          drivetrain (FWD/RWD/AWD).
+    3. Reliability
+        - Cite specific known issues with part names or systems where possible (e.g. "timing chain
+          tensioner", "DPF clogging"), not just general statements.
+    4. Common problems
+        - Include approximate mileage or age at which issues typically appear, if the search results
+          mention it.
+    5. Overall recommendation
+    6. Maintenance cost and tips
+        - Include concrete service intervals or cost ranges where the search results provide them.
+    7. Experiences from owners
+
+    Use precise technical terminology throughout. Do not invent information — if a specific figure
+    or fact is not present in the search results, state that it is not available rather than
+    estimating or guessing.
+    """;
 
         var request = new
         {
