@@ -22,7 +22,7 @@
     <input class="form-control" type="number" @bind="year" placeholder="e.g., 2020" />
 </div>
 
-<button class="btn btn-primary" @onclick="StartAnalysis" disabled="@isSubmitting">
+<button class="btn btn-primary" @onclick="StartAnalysis" disabled="@(isSubmitting || isAnalyzing)">
     Analyze
 </button>
 
@@ -35,9 +35,12 @@
 {
     <hr />
 
-    @if (currentStatus == "Pending")
+   @if (currentStatus != "Completed")
     {
-        <p><em>Request is being processed... (RequestId: @searchRequestId, Car: @make @model @year)</em></p>
+        <p>
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <em>@(currentStatus ?? "Processing...") (RequestId: @searchRequestId, Car: @make @model @year)</em>
+        </p>
     }
     else if (currentStatus == "Completed")
     {
@@ -87,7 +90,7 @@ private string? currentStatus;
 private SearchRequestDto? result;
 private string? errorMessage;
 private bool isSubmitting;
-
+private bool isAnalyzing => searchRequestId is not null && currentStatus != "Completed";
 private string SummaryHtml =>
     result?.Summary is not null
         ? Markdown.ToHtml(result.Summary)
@@ -149,7 +152,7 @@ private void StartPolling(int id)
 {
     pollCts?.Cancel();
     pollCts = new CancellationTokenSource();
-    pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+    pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(0.5));
 
     _ = PollLoop(id, pollTimer, pollCts.Token);
 }

@@ -96,7 +96,7 @@ public class LlmProcessingService : BackgroundService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         searchRequest.Status = "Web scraping in progress...";
-
+        await dbContext.SaveChangesAsync(cancellationToken);
         var webSearchingHelper = new WebSearchingHelper(_httpClientFactory);
         var searchResults = await webSearchingHelper.SearchCarAsync(
             searchRequest,
@@ -104,6 +104,7 @@ public class LlmProcessingService : BackgroundService
         var extractedSources = webSearchingHelper.ExtractSources(searchResults);
 
         searchRequest.Status = "LLM processing in progress...";
+        await dbContext.SaveChangesAsync(cancellationToken);
         string llmResult = await ProcessWithLlmAsync(
             searchRequest,
             searchResults,
