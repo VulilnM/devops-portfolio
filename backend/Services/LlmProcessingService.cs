@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using DevOpsPortfolio.Backend.Data;
 using DevOpsPortfolio.Backend.Helpers;
+using DevOpsPortfolio.Backend.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevOpsPortfolio.Backend.Services;
@@ -97,15 +98,31 @@ public class LlmProcessingService : BackgroundService
         searchRequest.Status = "Web scraping in progress...";
 
         var webSearchingHelper = new WebSearchingHelper(_httpClientFactory);
-        var searchResults = await webSearchingHelper    .SearchCarAsync(
+        var searchResults = await webSearchingHelper.SearchCarAsync(
             searchRequest,
             cancellationToken);
+        var extractedSources = webSearchingHelper.ExtractSources(searchResults);
 
         searchRequest.Status = "LLM processing in progress...";
         string llmResult = await ProcessWithLlmAsync(
             searchRequest,
             searchResults,
             cancellationToken);
+
+        foreach (var (url, title) in extractedSources)
+        {
+            string? domain = null;
+            try { domain = new Uri(url).Host; } catch { /* ignoriši nevalidan URL */ }
+
+            dbContext.Sources.Add(new Source
+            {
+                SearchRequestId = searchRequest.Id,
+                Url = url,
+                Title = title,
+                Domain = domain,
+                FetchedAt = DateTime.UtcNow
+            });
+        }
 
         searchRequest.Status = "Completed";
         searchRequest.Summary = llmResult;

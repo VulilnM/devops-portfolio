@@ -47,18 +47,23 @@
         </p>
 
         <p>
-            <strong>Summary: @result?.Summary </strong>
+            <div class="mb-3">
+                @((MarkupString)SummaryHtml)
+            </div>
         </p>
 
 
+        <h3>Izvori</h3>
         @if (result?.Sources.Count > 0)
         {
             <ul>
                 @foreach (var source in result.Sources)
                 {
                     <li>
-                        <a href="@source.Url" target="_blank">@source.Title</a>
-                        (@source.Domain)
+
+                        <p>
+                            <strong><a href="@source.Url" target="_blank">@source.Title</a>(@source.Domain)</strong>
+                        </p>
                     </li>
                 }
             </ul>
@@ -71,116 +76,123 @@
 }
 
 @code {
+@using Markdig
+
     private string make = string.Empty;
-    private string model = string.Empty;
-    private int year;
+private string model = string.Empty;
+private int year;
 
-    private int? searchRequestId;
-    private string? currentStatus;
-    private SearchRequestDto? result;
-    private string? errorMessage;
-    private bool isSubmitting;
+private int? searchRequestId;
+private string? currentStatus;
+private SearchRequestDto? result;
+private string? errorMessage;
+private bool isSubmitting;
 
-    private PeriodicTimer? pollTimer;
-    private CancellationTokenSource? pollCts;
+private string SummaryHtml =>
+    result?.Summary is not null
+        ? Markdown.ToHtml(result.Summary)
+        : string.Empty;
 
-    private async Task StartAnalysis()
+private PeriodicTimer? pollTimer;
+private CancellationTokenSource? pollCts;
+
+private async Task StartAnalysis()
+{
+    errorMessage = null;
+    result = null;
+    currentStatus = null;
+    isSubmitting = true;
+
+    try
     {
-        errorMessage = null;
-        result = null;
-        currentStatus = null;
-        isSubmitting = true;
+        var client = HttpClientFactory.CreateClient("BackendApi");
 
-        try
+        var request = new AnalyzeCarRequest
+        {
+            Make = make,
+            Model = model,
+            Year = year
+        };
+
+        var response = await client.PostAsJsonAsync("api/cars/analyze", request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            errorMessage = $"Greška: {response.StatusCode}";
+            return;
+        }
+
+        var analyzeResponse = await response.Content.ReadFromJsonAsync<AnalyzeCarResponse>();
+
+        if (analyzeResponse is null)
+        {
+            errorMessage = "Neočekivan odgovor servera.";
+            return;
+        }
+
+        searchRequestId = analyzeResponse.SearchRequestId;
+        currentStatus = analyzeResponse.Status;
+
+        StartPolling(analyzeResponse.SearchRequestId);
+    }
+    catch (Exception ex)
+    {
+        errorMessage = $"Greška pri slanju zahteva: {ex.Message}";
+    }
+    finally
+    {
+        isSubmitting = false;
+    }
+}
+
+private void StartPolling(int id)
+{
+    pollCts?.Cancel();
+    pollCts = new CancellationTokenSource();
+    pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+
+    _ = PollLoop(id, pollTimer, pollCts.Token);
+}
+
+private async Task PollLoop(int id, PeriodicTimer timer, CancellationToken token)
+{
+    try
+    {
+        while (await timer.WaitForNextTickAsync(token))
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
+            var dto = await client.GetFromJsonAsync<SearchRequestDto>($"api/searchrequests/{id}", token);
 
-            var request = new AnalyzeCarRequest
+            if (dto is null)
             {
-                Make = make,
-                Model = model,
-                Year = year
-            };
+                continue;
+            }
 
-            var response = await client.PostAsJsonAsync("api/cars/analyze", request);
+            currentStatus = dto.Status;
 
-            if (!response.IsSuccessStatusCode)
+            if (dto.Status == "Completed")
             {
-                errorMessage = $"Greška: {response.StatusCode}";
+                result = dto;
+                timer.Dispose();
                 return;
             }
 
-            var analyzeResponse = await response.Content.ReadFromJsonAsync<AnalyzeCarResponse>();
-
-            if (analyzeResponse is null)
-            {
-                errorMessage = "Neočekivan odgovor servera.";
-                return;
-            }
-
-            searchRequestId = analyzeResponse.SearchRequestId;
-            currentStatus = analyzeResponse.Status;
-
-            StartPolling(analyzeResponse.SearchRequestId);
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Greška pri slanju zahteva: {ex.Message}";
-        }
-        finally
-        {
-            isSubmitting = false;
-        }
-    }
-
-    private void StartPolling(int id)
-    {
-        pollCts?.Cancel();
-        pollCts = new CancellationTokenSource();
-        pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(3));
-
-        _ = PollLoop(id, pollTimer, pollCts.Token);
-    }
-
-    private async Task PollLoop(int id, PeriodicTimer timer, CancellationToken token)
-    {
-        try
-        {
-            while (await timer.WaitForNextTickAsync(token))
-            {
-                var client = HttpClientFactory.CreateClient("BackendApi");
-                var dto = await client.GetFromJsonAsync<SearchRequestDto>($"api/searchrequests/{id}", token);
-
-                if (dto is null)
-                {
-                    continue;
-                }
-
-                currentStatus = dto.Status;
-
-                if (dto.Status == "Completed")
-                {
-                    result = dto;
-                    timer.Dispose();
-                    return;
-                }
-
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // ocekivano pri Dispose/navigaciji van stranice
-        }
-        finally
-        {
             await InvokeAsync(StateHasChanged);
         }
     }
-
-    public void Dispose()
+    catch (OperationCanceledException)
     {
-        pollCts?.Cancel();
-        pollTimer?.Dispose();
+        // ocekivano pri Dispose/navigaciji van stranice
     }
+    finally
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+}
+
+public void Dispose()
+{
+    pollCts?.Cancel();
+    pollTimer?.Dispose();
+}
 }

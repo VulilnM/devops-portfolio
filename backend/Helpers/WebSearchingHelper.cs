@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DevOpsPortfolio.Backend.Models;
 
 namespace DevOpsPortfolio.Backend.Helpers;
@@ -6,6 +8,21 @@ public class WebSearchingHelper
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<WebSearchingHelper> _logger;
+
+    private class SearxngResponse
+    {
+        [JsonPropertyName("results")]
+        public List<SearxngResultItem> Results { get; set; } = new();
+    }
+
+    private class SearxngResultItem
+    {
+        [JsonPropertyName("url")]
+        public string Url { get; set; } = string.Empty;
+
+        [JsonPropertyName("title")]
+        public string? Title { get; set; }
+    }
 
     public WebSearchingHelper(
         IHttpClientFactory httpClientFactory)
@@ -38,5 +55,16 @@ public class WebSearchingHelper
 
         return await response.Content
             .ReadAsStringAsync(cancellationToken);
+    }
+
+    public List<(string Url, string? Title)> ExtractSources(string rawJson, int maxResults = 5)
+    {
+        var parsed = JsonSerializer.Deserialize<SearxngResponse>(rawJson);
+
+        return parsed?.Results
+            .Where(r => !string.IsNullOrWhiteSpace(r.Url))
+            .Take(maxResults)
+            .Select(r => (r.Url, r.Title))
+            .ToList() ?? new List<(string, string?)>();
     }
 }
